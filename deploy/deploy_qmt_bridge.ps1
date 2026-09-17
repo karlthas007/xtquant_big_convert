@@ -17,6 +17,7 @@ param(
     [Parameter(Mandatory=$true)][string]$Account,
     [string]$WorkDir = "C:\qmt_bridge",
     [string]$RedisZip = "",
+    [string]$RedisUrl = "",
     [string]$Proxy = "",
     [switch]$CheckOnly,
     [switch]$AllowOrders,
@@ -177,12 +178,12 @@ if (-not (Test-RedisZip $RedisZip)) {
     $downloadZip = "$zip.download"
     $dlArgs = @("-L","--connect-timeout","20","--retry","3","--retry-delay","2","--max-time","1800",
       "-o",$downloadZip,
-      "https://github.com/tporadowski/redis/releases/download/v5.0.14/Redis-x64-5.0.14.zip")
+      (if ($RedisUrl) { $RedisUrl } else { "https://github.com/tporadowski/redis/releases/download/v5.0.14/Redis-x64-5.0.14.zip" }))
     if ($Proxy) { $dlArgs = @("-x",$Proxy) + $dlArgs }
     & curl.exe @dlArgs
     if ($LASTEXITCODE -ne 0 -or -not (Test-RedisZip $downloadZip)) {
         if (Test-Path $downloadZip) { Remove-Item -LiteralPath $downloadZip -Force }
-        throw "redis download failed or incomplete (github.com unreachable; pass -RedisZip <path> for offline use, or add -Proxy http://...)"
+        throw "redis download failed or incomplete (pass -RedisZip <path> for offline use, -RedisUrl <mirror> for an alternate source, or add -Proxy http://...)"
     }
     Move-Item -LiteralPath $downloadZip -Destination $RedisZip -Force
 }
