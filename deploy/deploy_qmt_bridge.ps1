@@ -152,14 +152,39 @@ Ok "copied to $dst"
 Step "3/7 redis 5.0.14"
 $rdir = "$WorkDir\redis"
 $zip  = "$rdir\Redis-x64-5.0.14.zip"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+function Test-RedisZip([string]$Path) {
+    if (-not (Test-Path $Path)) { return $false }
+    try {
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($Path)
+        try { return [bool]($archive.Entries | Where-Object { $_.Name -eq "redis-server.exe" }) }
+        finally { $archive.Dispose() }
+    } catch { return $false }
+}
 if (-not $RedisZip) { $RedisZip = $zip }
-if (-not (Test-Path $RedisZip)) {
+if (-not (Test-RedisZip $RedisZip)) {
     New-Item -ItemType Directory -Force $rdir | Out-Null
-    $dlArgs = @("-L","--max-time","600","-o",$RedisZip,
+    if ($RedisZip -eq $zip -and (Test-Path $RedisZip)) {
+        Info "removing incomplete redis archive: $RedisZip"
+        Remove-Item -LiteralPath $RedisZip -Force
+    }
+    elseif (-not (Test-Path $RedisZip)) {
+        throw "RedisZip not found: $RedisZip"
+    }
+    else {
+        throw "RedisZip is not a valid redis archive (must contain redis-server.exe): $RedisZip"
+    }
+    $downloadZip = "$zip.download"
+    $dlArgs = @("-L","--connect-timeout","20","--retry","3","--retry-delay","2","--max-time","1800",
+      "-o",$downloadZip,
       "https://github.com/tporadowski/redis/releases/download/v5.0.14/Redis-x64-5.0.14.zip")
     if ($Proxy) { $dlArgs = @("-x",$Proxy) + $dlArgs }
     & curl.exe @dlArgs
-    if ($LASTEXITCODE -ne 0) { throw "redis download failed (github.com unreachable; pass -RedisZip <path> for offline use, or add -Proxy http://...)" }
+    if ($LASTEXITCODE -ne 0 -or -not (Test-RedisZip $downloadZip)) {
+        if (Test-Path $downloadZip) { Remove-Item -LiteralPath $downloadZip -Force }
+        throw "redis download failed or incomplete (github.com unreachable; pass -RedisZip <path> for offline use, or add -Proxy http://...)"
+    }
+    Move-Item -LiteralPath $downloadZip -Destination $RedisZip -Force
 }
 if (-not (Test-Path "$rdir\Redis-x64-5.0.14\redis-server.exe")) {
     Expand-Archive $RedisZip "$rdir\Redis-x64-5.0.14" -Force
