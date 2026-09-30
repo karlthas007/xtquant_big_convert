@@ -9,8 +9,10 @@
 .PARAMETER Account  Capital account id (digits), e.g. 1234567890
 .PARAMETER WorkDir  Deployment root (default C:\qmt_bridge)
 .PARAMETER RedisZip Offline redis zip path; skip GitHub download when provided
+.PARAMETER RedisUrl Alternate redis zip download URL
 .PARAMETER Proxy    HTTP proxy for downloads, e.g. http://127.0.0.1:7897
 .PARAMETER AllowOrders  Enable order RPCs in the generated server config (off by default)
+.PARAMETER Upgrade  Upgrade an already-installed xtquant-big-convert package; fresh installs always use the latest release
 #>
 param(
     [Parameter(Mandatory=$true)][string]$QmtDir,
@@ -21,6 +23,7 @@ param(
     [string]$Proxy = "",
     [switch]$CheckOnly,
     [switch]$AllowOrders,
+    [switch]$Upgrade,
     [switch]$Conda,
     [string]$MinicondaUrl = "",
     [string]$PipIndex = "https://pypi.tuna.tsinghua.edu.cn/simple",
@@ -133,6 +136,13 @@ if ($Proxy) { $pipArgs += @("--proxy",$Proxy) }
 if ($pkgList -notmatch "xtquant-big-convert") {
     & $vpy -m pip install $(if ($Proxy) { @("--proxy",$Proxy) } else { @() }) -i $PipIndex "xtquant-big-convert[redis]" pandas
     if ($LASTEXITCODE -ne 0) { throw "pip install failed (check network/proxy)" }
+} elseif ($Upgrade) {
+    $upgradeArgs = @("-m","pip","install","-i",$PipIndex,"--upgrade")
+    if ($Proxy) { $upgradeArgs += @("--proxy",$Proxy) }
+    $upgradeArgs += "xtquant-big-convert[redis]"
+    & $vpy @upgradeArgs
+    if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed (check network/proxy)" }
+    Ok "xtquant-big-convert upgraded"
 }
 Ok "venv ready: $vpy"
 

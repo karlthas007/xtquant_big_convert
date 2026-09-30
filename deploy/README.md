@@ -27,6 +27,8 @@ powershell -ExecutionPolicy Bypass -File .\deploy_qmt_bridge.ps1 `
 
 脚本幂等，可重复跑。**pip / conda 包源 / Miniconda 安装器默认全部走清华镜像**（国内实测 ~2MB/s；
 需要换回官方源时传 `-PipIndex https://pypi.org/simple`，conda/Miniconda 同理见脚本内默认值）。
+已有部署升级时在原命令后加 `-Upgrade`；未传该参数时，已安装的 `xtquant-big-convert` 保持原版本。
+升级后会重拷服务端文件，QMT 里需 `reload_deployment` 或重启策略后生效。
 做完的事：建客户端环境（`-Conda` 走 miniconda py3.13 前缀环境，否则系统 python venv）并装包 → 拷服务端 4 项进 QMT python 目录 →
 下载/解压 Redis → 注册 Windows 服务（bind 127.0.0.1 + 随机密码 + 192mb 上限）→
 生成服务端/客户端配置 → 放入 `qmt_cli.py`。
